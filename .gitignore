@@ -1,0 +1,25 @@
+﻿# Environnement virtuel
+.venv/
+
+# Variables d'environnement et secrets
+.env
+!.env.example
+
+# Données : conserver uniquement le fichier de structure
+data/*
+!data/.gitkeep
+
+# Modèles entraînés : ne pas versionner les modèles
+models/*
+!models/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environnement et éditeur
+.vscode/
