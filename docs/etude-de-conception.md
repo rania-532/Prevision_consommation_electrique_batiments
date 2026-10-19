@@ -1,97 +1,183 @@
-# Étude de conception — Prévision de la consommation électrique de bâtiments tertiaires
- 
-Groupe : 
-Version : brouillon · Date : [11/10/2026]
- 
-> Brouillon des sections 1 à 5 (les sections 6 à 9 sont des pré-brouillons, à finaliser à la séance 6). Les choix marqués « hypothèse » sont à confirmer par le groupe. Les valeurs entre crochets seront **calculées sur les données** (jamais inventées).
- 
+# Étude de conception — Application intelligente de prévision de la consommation électrique d'un bâtiment
+
+**Groupe :** 4  
+**Version :** 1.0 — Brouillon  
+**Date :** 19/10/2026
+
 ## 1. Contexte et utilisateurs
- 
-- Organisation ou situation : un **parc de bâtiments tertiaires** dont la consommation électrique est mesurée heure par heure, bâtiment par bâtiment, et gérée par un service énergie. [Contexte précisé après le choix des bâtiments : campus universitaire, parc de bureaux ou collectivité, selon la composition du site retenu et son profil de consommation.]
-- Utilisateur principal (un rôle précis) : le **responsable énergie du parc**. Perspective hors périmètre : exploitants techniques, direction du patrimoine.
- 
-## 2. Problème et décision
- 
-- Décision que l'utilisateur prend avec le système : chaque jour, à une heure fixée T, le responsable énergie arrête le plan d'exploitation du lendemain (programmation du chauffage et de la climatisation, bâtiments à préchauffer ou prérefroidir, mesures pour limiter un pic de consommation), à partir de la consommation électrique prévue heure par heure pour chaque bâtiment.
-  - **Hypothèse sur T** : fin de matinée (par exemple 11 h), car la programmation du lendemain doit être arrêtée avant la fin de la journée de travail du service énergie. À confirmer avec un utilisateur réel. T fixe ce qu'on a le droit d'utiliser : seules les mesures **connues à T** entrent dans le modèle.
-  - *Phrase « utilisateur + décision »* : le responsable énergie du parc arrête chaque jour, à 11 h, le plan d'exploitation du lendemain à partir de la consommation prévue heure par heure pour chaque bâtiment.
-- Fréquence : quotidienne (une prévision par bâtiment et par jour, 24 valeurs horaires pour le lendemain).
-- Conséquence d'une erreur, et pour qui :
-  - **sous-estimation** : pic non anticipé, surcoût (selon le contrat d'énergie, **hypothèse**), inconfort si le chauffage est insuffisant : le service énergie et les occupants sont touchés ;
-  - **surestimation** : préchauffage inutile, énergie gaspillée : le budget du parc est touché.
-  - L'erreur la plus coûteuse est probablement la sous-estimation aux heures de pointe : [à confirmer avec les données].
- 
-## 3. Approche par sous-problème
- 
-| Sous-problème | Approche (règles / ML / DL / LLM / RAG) | Pourquoi pas une approche plus simple |
+
+### 1.1 Contexte
+
+La consommation électrique représente un enjeu important pour les bâtiments tertiaires, notamment en matière de coûts énergétiques et d'efficacité énergétique.
+
+Ce projet consiste à développer une application intelligente capable de prévoir la consommation électrique future d'un bâtiment à partir de ses données historiques. L'application permettra de visualiser les consommations passées et les prévisions afin d'aider l'utilisateur à mieux anticiper ses besoins énergétiques.
+
+### 1.2 Utilisateur cible
+
+L'utilisateur principal est le responsable énergétique du bâtiment. Il pourra consulter l'historique de consommation, visualiser les prévisions et identifier les périodes de consommation élevée.
+
+## 2. Problématique et objectifs
+
+### 2.1 Problématique
+
+Comment exploiter les données historiques de consommation électrique d'un bâtiment pour prévoir sa consommation future et faciliter la prise de décision énergétique ?
+
+### 2.2 Objectif principal
+
+Développer une application basée sur le machine learning permettant de prévoir la consommation électrique d'un bâtiment et de présenter les résultats dans une interface interactive.
+
+### 2.3 Objectifs spécifiques
+
+- Collecter et préparer les données de consommation électrique.
+- Analyser les tendances et les variations de consommation.
+- Entraîner et comparer plusieurs modèles de prévision.
+- Évaluer les performances des modèles.
+- Intégrer le modèle retenu dans une application Streamlit.
+- Visualiser les données historiques et les consommations prévues.
+
+### 2.4 Fonctionnalités prévues
+
+- Consultation des données historiques.
+- Visualisation de la consommation sous forme de graphiques.
+- Sélection de l'horizon de prévision selon les capacités du modèle.
+- Affichage des consommations prévues.
+- Comparaison entre les valeurs prévues et les valeurs réelles lorsque celles-ci sont disponibles.
+
+## 3. Approche de résolution
+
+| Sous-problème | Approche retenue | Objectif |
 |---|---|---|
-| Préparer des données fiables (valeurs négatives, zéros longs, pics, trous) | **Règles** chiffrées, validées contre le jeu nettoyé fourni par les auteurs du jeu de données | Ces défauts se détectent par des seuils ; un modèle de détection d'anomalies serait plus complexe à justifier |
-| Prévoir la consommation horaire du lendemain | **ML** : baselines (même heure 7 jours avant, moyenne des 4 dernières semaines) → régression linéaire (Ridge) → gradient boosting ; options : réseau récurrent, prévision par intervalle | Les baselines **sont** l'approche simple : le ML n'est retenu que s'il les bat d'un seuil chiffré (section 5). Une baseline qui reste compétitive est un résultat défendable |
-| Exposer la prévision (API et interface) | **Code applicatif** (FastAPI, Streamlit), sans IA | Exposer un modèle ne demande ni LLM ni modèle supplémentaire |
-| Conseiller sur l'efficacité énergétique (après le module ML) | **RAG** sur des guides publics, avec sources citées | Une page statique ou une recherche par mots-clés serait plus simple : le RAG n'est justifié que si le corpus et les questions le demandent [à confirmer avec l'enseignant] |
- 
+| Préparation des données | Règles de nettoyage avec pandas et numpy | Obtenir des données fiables |
+| Analyse des consommations | Statistiques et visualisations | Identifier les tendances et la saisonnalité |
+| Prévision de la consommation | Machine learning avec scikit-learn | Apprendre les comportements de consommation |
+| Évaluation des modèles | MAE et RMSE | Comparer les performances |
+| Interface utilisateur | Streamlit | Présenter les données et les prévisions |
+| Tests | pytest | Vérifier le fonctionnement des composants |
+
+Une méthode de référence simple sera comparée aux modèles de machine learning afin de vérifier que leur complexité apporte une amélioration réelle.
+
 ## 4. Données
- 
-| Jeu de données | Source et licence | Volume | Données personnelles ? |
-|---|---|---|---|
-| Building Data Genome Project 2 (BDG2) : électricité horaire et météo du site | https://github.com/buds-lab/building-data-genome-project-2 · Miller et al., *Scientific Data* 7, 368 (2020), https://doi.org/10.1038/s41597-020-00712-x · licence **CC BY-SA 4.0** d'après le fichier LICENSE du dépôt [à confirmer dans l'article] | Jeu complet : 1 636 bâtiments, 3 053 compteurs, 2016-2017, ≈ 53,6 M de mesures. **Utilisé** : 1 site [nom], 20 bâtiments × 17 544 heures = 350 880 lignes, plus la météo du site | Pas d'individus : ce sont des mesures par bâtiment. Les identifiants de bâtiments contiennent des prénoms : pseudonymes probables, [à vérifier] |
- 
-- **Obtention** : fichiers CSV téléchargés depuis le dépôt (stockés avec Git LFS), placés dans `data/` (jamais dans Git ; DVC à la séance 7).
-- **Sélection** : électricité seulement, un site, 20 bâtiments tirés au hasard par usage avec graine fixe ; critères et entonnoir dans l'ADR « choix du jeu de données ». Le contexte (campus, bureaux, collectivité) est déduit de ces bâtiments.
-- **Nettoyage** : sur les données brutes, règles dans l'ADR « nettoyage des données » ; le jeu nettoyé des auteurs ne sert que de référence de comparaison.
- 
-## 5. Métriques, baseline et critères d'acceptation
- 
-- **Baseline et son résultat** : B1 = même heure, 7 jours avant ; B2 = moyenne du même jour de semaine et de la même heure sur les 4 dernières semaines. Toutes deux n'utilisent que des mesures connues à l'heure de production T, quelle que soit T. Évaluées sur les **mêmes lignes** que les modèles : test = année 2017, lignes sans valeur manquante ni valeur interpolée. Résultat : MAE de B1 = [à calculer] kWh, MAE de B2 = [à calculer] kWh (médiane sur les 20 bâtiments).
-- **Métrique principale et pourquoi** : MAE (kWh) par bâtiment, et MAE en % de la consommation moyenne du bâtiment pour comparer des bâtiments de tailles différentes. Le coût d'une erreur est proportionnel à l'énergie mal prévue, ce que mesure la MAE. Métrique secondaire : RMSE, qui pénalise les grosses erreurs donc les pics. MAPE écartée : instable quand la consommation est proche de zéro.
-- **Critères d'acceptation** (un nombre, un jeu de données, une condition) :
-  1. **Performance** : sur le jeu de test 2017 (20 bâtiments, lignes évaluables), la MAE en % du modèle retenu est inférieure d'au moins [X] % à celle de la meilleure baseline, pour la médiane des bâtiments. [X fixé après calcul des baselines.]
-  2. **Robustesse** : sur le même jeu de test, le modèle bat la meilleure baseline sur au moins [Y] des 20 bâtiments.
-- **Découpage** (proposition) : entraînement sur 2016, test sur 2017 (chronologique) ; réglage des hyperparamètres par validation chronologique **à l'intérieur de 2016**, jamais sur le test.
- 
-## 6. Architecture prévue (pré-brouillon, à finaliser après la séance 5)
- 
-```mermaid
-flowchart LR
-  A["BDG2 : 4 CSV<br/>data/"] --> B["Sélection et nettoyage<br/>data.py"]
-  B --> C[("Jeu final<br/>data/processed")]
-  C --> D["Entraînement et évaluation<br/>train.py"]
-  D --> E[("Modèle<br/>models/")]
-  E --> F["Prédiction<br/>predict.py"]
-  F --> G["API FastAPI<br/>api/"]
-  G --> H["Interface Streamlit<br/>ui/"]
-```
- 
-## 7. Choix technologiques (pré-brouillon, après la séance 5)
- 
-| Besoin | Outil | Justification |
+
+### 4.1 Source envisagée
+
+Le jeu de données envisagé est le **Building Data Genome Project 2 (BDG2)**, qui contient des mesures de consommation de bâtiments ainsi que des données météorologiques associées.
+
+Source : https://github.com/buds-lab/building-data-genome-project-2
+
+Publication scientifique : https://doi.org/10.1038/s41597-020-00712-x
+
+La sélection définitive des données sera effectuée après vérification de leur disponibilité, de leur structure, de leur licence et de leur adéquation avec le problème étudié.
+
+### 4.2 Variables envisagées
+
+- Date et heure de mesure.
+- Consommation électrique.
+- Identifiant du bâtiment, si nécessaire.
+- Variables météorologiques disponibles et pertinentes.
+
+### 4.3 Préparation des données
+
+Les opérations prévues comprennent :
+
+- Le chargement des fichiers.
+- La vérification des types et des unités.
+- Le traitement des valeurs manquantes et des doublons.
+- La vérification des dates et de la fréquence des mesures.
+- La création de variables temporelles.
+- La séparation chronologique des données pour l'entraînement, la validation et le test.
+
+Les données brutes seront conservées séparément des données préparées.
+
+## 5. Modélisation et critères d'évaluation
+
+### 5.1 Modèles envisagés
+
+Les approches suivantes seront étudiées :
+
+- **Baseline :** utilisation de la consommation observée à une période comparable.
+- **Régression Ridge :** modèle de régression linéaire régularisée.
+- **Random Forest :** modèle basé sur un ensemble d'arbres de décision.
+- **Gradient Boosting :** modèle d'ensemble à évaluer selon les résultats obtenus.
+
+Le choix final dépendra des performances mesurées sur les données de validation.
+
+### 5.2 Métriques d'évaluation
+
+- **MAE (Mean Absolute Error) :** mesure l'erreur absolue moyenne.
+- **RMSE (Root Mean Squared Error) :** pénalise davantage les erreurs importantes.
+
+Les résultats seront calculés sur des données de test qui n'auront pas servi à entraîner ou à régler les modèles.
+
+### 5.3 Stratégie de validation
+
+La séparation des données respectera leur ordre chronologique afin d'éviter d'utiliser des informations futures pour prévoir le passé.
+
+Les performances des modèles seront comparées à celles de la baseline. Les résultats et les critères d'acceptation définitifs seront fixés après les premiers essais.
+
+## 6. Architecture de l'application
+
+L'application sera organisée en plusieurs composants indépendants :
+
+1. **Configuration :** centralisation des chemins et paramètres dans `config.py`.
+2. **Gestion des données :** chargement et préparation dans `data.py`.
+3. **Entraînement :** entraînement et évaluation des modèles dans `train.py`.
+4. **Stockage du modèle :** sauvegarde du modèle retenu dans `models/`.
+5. **Prédiction :** chargement du modèle et génération des prévisions dans `predict.py`.
+6. **Interface :** affichage interactif des données et des prévisions avec Streamlit dans `ui/`.
+7. **Tests :** vérification du fonctionnement des composants dans `tests/`.
+
+### Flux de fonctionnement
+
+Données brutes → Préparation → Entraînement et évaluation → Modèle sauvegardé → Prédiction → Interface Streamlit.
+
+## 7. Choix technologiques
+
+| Besoin | Technologie | Utilisation |
 |---|---|---|
-| Manipuler des séries temporelles | pandas, numpy | standard, adapté aux données horaires |
-| Modèles | scikit-learn (Ridge), LightGBM [à confirmer] | le gradient boosting domine la compétition qui a utilisé ces données |
-| Stocker le jeu final | Parquet (pyarrow) | lecture rapide, types conservés |
-| Exposer le modèle | FastAPI | API typée, validation des entrées |
-| Interface | Streamlit | démonstration rapide pour l'utilisateur |
-| Qualité | pytest | tests sur les données et le code |
-| Reproductibilité | Python 3.11, `requirements.txt` épinglé, DVC (S7) | mêmes versions chez tous, données versionnées hors Git |
-| Livraison | Docker, docker-compose, GitHub Actions (S8) | exécution identique partout, contrôle automatique |
- 
-## 8. Risques, éthique, confidentialité (pré-brouillon)
- 
-| # | Question | Réponse provisoire | Mesure |
-|---|---|---|---|
-| 1 | Données personnelles ? Lesquelles ? | Non : mesures par bâtiment. Identifiants avec prénoms (pseudonymes probables) [à vérifier] | vérifier `metadata`, ne pas utiliser les colonnes `occupants` et de localisation |
-| 2 | S'en passer ou anonymiser ? | Aucune donnée personnelle nécessaire | liste des colonnes utilisées dans l'ADR |
-| 3 | Qui peut être lésé par une erreur ? | Occupants (inconfort), service énergie (surcoût) | critères d'acceptation 1 et 2, marge de sécurité [à définir] |
-| 4 | Les données couvrent-elles tous les cas d'usage ? | Non : un site, un climat, deux années | test sur 2017 séparé ; limite affichée dans l'interface ; second site en option |
-| 5 | Quelle erreur coûte le plus, et à qui ? | Sous-estimation aux heures de pointe, pour le parc [à confirmer] | RMSE et erreur sur les 10 % d'heures les plus chargées, rapportées avec la MAE |
-| 6 | Qui valide et peut corriger ? | Le responsable énergie reste décisionnaire ; la prévision est une aide | l'interface affiche prévu et réel pour contrôler l'écart |
-| 7 | Des données sortent-elles de l'organisation ? | Non pour la prévision (exécution locale ou Docker) ; le RAG pourrait appeler un LLM externe [à décider] | aucune donnée de consommation envoyée à une API externe ; documents publics seulement |
-| 8 | Détournement ? | Entrées absurdes envoyées à l'API ; usage hors périmètre | validation des entrées (bornes plausibles), refus des bâtiments inconnus |
- 
-## 9. Limites et hors périmètre (pré-brouillon)
- 
-- Météo **mesurée** utilisée à l'entraînement ; en production on aurait des prévisions (erreur de prévision météo non simulée).
-- Un site, 20 bâtiments, deux années : généralisation non démontrée.
-- Horizon J+1 uniquement : ni temps réel, ni semaine à venir.
-- Prévision seulement : aucun pilotage automatique des bâtiments.
-- L'assistant RAG vient après le module de machine learning.
+| Langage | Python | Développement général |
+| Manipulation des données | pandas, numpy | Chargement, nettoyage et transformation |
+| Machine learning | scikit-learn | Entraînement et évaluation |
+| Sauvegarde des modèles | joblib | Sérialisation du modèle |
+| Interface utilisateur | Streamlit | Application interactive |
+| Visualisation | Matplotlib ou Plotly | Graphiques de consommation |
+| Tests | pytest | Tests unitaires et d'intégration |
+| Gestion des versions | Git et GitHub | Collaboration et suivi du code |
+| Conteneurisation | Docker et Docker Compose | Exécution reproductible |
+| Intégration continue | GitHub Actions | Automatisation des tests |
+
+Les versions précises des dépendances seront définies dans `requirements.txt`.
+
+## 8. Risques et considérations
+
+| Risque | Conséquence possible | Mesure prévue |
+|---|---|---|
+| Données manquantes ou incorrectes | Prévisions moins fiables | Contrôle et nettoyage des données |
+| Historique insuffisant | Difficulté à apprendre les tendances | Vérification de la couverture temporelle |
+| Surapprentissage | Mauvaise généralisation | Validation chronologique et comparaison des modèles |
+| Pics difficiles à prévoir | Erreurs importantes pendant les périodes critiques | Analyse spécifique des erreurs |
+| Différences entre bâtiments | Performances variables | Évaluation adaptée aux données disponibles |
+| Mauvaise utilisation des prévisions | Décisions énergétiques inadaptées | Présentation claire des limites du modèle |
+
+Le système constitue une aide à la décision. Il ne commande pas automatiquement les équipements électriques du bâtiment.
+
+Les données utilisées seront vérifiées afin de limiter l'exposition d'informations sensibles. Aucune donnée ne sera envoyée à un service externe sans nécessité et décision explicite.
+
+## 9. Limites et périmètre du projet
+
+### 9.1 Périmètre
+
+Le projet comprend la préparation des données, l'analyse exploratoire, le développement et l'évaluation d'un modèle de prévision, la création d'une interface Streamlit ainsi que les tests et le déploiement.
+
+### 9.2 Limites
+
+- Les performances dépendent de la qualité et de la quantité des données disponibles.
+- La généralisation à d'autres bâtiments devra être évaluée séparément.
+- Les prévisions météorologiques futures ne pourront être utilisées que si elles sont disponibles au moment de la prédiction.
+- Le système fournit des prévisions et ne réalise pas de pilotage automatique.
+- Les résultats ne garantissent pas une prédiction exacte de la consommation future.
+
+Les extensions éventuelles, comme les alertes avancées ou les recommandations d'efficacité énergétique, seront envisagées après la réalisation du périmètre principal.
+
+## Conclusion
+
+Ce projet vise à concevoir une application intelligente permettant d'anticiper la consommation électrique d'un bâtiment grâce au machine learning. La séparation entre la préparation des données, l'entraînement, la prédiction et l'interface Streamlit permettra de développer une solution modulaire, testable et évolutive.
