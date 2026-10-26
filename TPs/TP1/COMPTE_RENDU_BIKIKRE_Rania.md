@@ -194,10 +194,10 @@ maintai.api.main désigne le module Python correspondant au fichier maintai/api/
 
 ## 7. Le rendu Git
 
-- Lien de la pull request : [À COMPLÉTER]
-- Le tag `tp1` existe sur GitHub : [oui / non]
+- Lien de la pull request : (https://github.com/rania-532/Prevision_consommation_electrique_batiments/pull/10)
+- Le tag `tp1` existe sur GitHub :  non
 - Qui a relu la pull request, et quel commentaire a-t-il laissé ?
-  Imane Nadif 
+  Imane Nadif Commentaire laissé : "Je valide"
 
 ## 8. Ce qui reste flou
 
