@@ -1,0 +1,15 @@
+# Environnements virtuels Python
+.venv/
+**/.venv/
+
+# Cache Python et tests
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Données et notebooks personnels à intégrer plus tard
+/data/
+/notebooks/
