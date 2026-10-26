@@ -1,35 +1,22 @@
-"""Tests de l'évaluation et de la comparaison."""
 import json
 
-from sklearn.dummy import DummyClassifier, DummyRegressor
-from sklearn.pipeline import Pipeline
-
-from monprojet import config
-from monprojet.data import load_data, split
-from monprojet.train import HIGHER_IS_BETTER, build_preprocessing, evaluate, main
+from maintai.config import FEATURES, get_settings
 
 
-def test_evaluate_renvoie_la_metrique_principale():
-    X_train, X_test, y_train, y_test = split(load_data())
-    dummy = DummyClassifier() if config.TASK == "classification" else DummyRegressor()
-    model = Pipeline([("preparation", build_preprocessing(X_train)), ("modele", dummy)]).fit(X_train, y_train)
-    scores = evaluate(model, X_test, y_test)
-    assert isinstance(scores, dict), "evaluate() doit renvoyer un dictionnaire"
-    assert config.MAIN_METRIC in scores, f"evaluate() doit contenir la métrique principale « {config.MAIN_METRIC} »"
-    assert isinstance(scores[config.MAIN_METRIC], float)
+def test_training_writes_artifacts(trained_model):
+    s = get_settings()
+    assert s.model_path.exists()
+    assert s.info_path.exists()
+    assert s.metrics_path.exists()
 
 
-def test_main_ecrit_les_resultats():
-    main()
-    metrics = json.loads((config.MODELS_DIR / "metrics.json").read_text(encoding="utf-8"))
-    assert {"main_metric", "best", "results"} <= set(metrics), "metrics.json doit contenir main_metric, best et results"
-    assert (config.MODELS_DIR / "model.joblib").exists(), "le meilleur modèle doit être sauvegardé dans model.joblib"
+def test_info_is_the_input_contract(trained_model):
+    info = json.loads(get_settings().info_path.read_text(encoding="utf-8"))
+    assert info["features"] == FEATURES
+    assert 0 < info["threshold"] < 1
 
 
-def test_le_meilleur_modele_bat_la_baseline():
-    main()
-    metrics = json.loads((config.MODELS_DIR / "metrics.json").read_text(encoding="utf-8"))
-    results, metric = metrics["results"], metrics["main_metric"]
-    baseline = results[next(iter(results))][metric]
-    best = results[metrics["best"]][metric]
-    assert best > baseline if HIGHER_IS_BETTER[metric] else best < baseline
+def test_model_beats_baseline(trained_model):
+    metrics = json.loads(get_settings().metrics_path.read_text(encoding="utf-8"))
+    assert metrics["model"]["recall"] > metrics["baseline"]["recall"]
+    assert set(metrics["model"]) >= {"accuracy", "recall", "precision", "threshold"}

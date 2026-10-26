@@ -1,69 +1,196 @@
+
 """Chargement et découpage des données.
 
-À vous d'écrire load_data() et split(). Les tests de tests/test_data.py disent ce qui est attendu.
+Chargement du fichier CSV et séparation des données
+pour entraîner et tester les modèles.
 """
-import pandas as pd
-from sklearn.model_selection import train_test_split  # noqa: F401  (utile pour split)
 
-from monprojet import config
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+from TPs.TP1.monprojet import config_REG
 
 
 def load_data(path=None) -> pd.DataFrame:
     """Lit le fichier CSV et renvoie un DataFrame.
 
-    Attendu :
-    - lire config.DATA_PATH (ou `path` s'il est donné) ;
-    - si la colonne config.TARGET n'existe pas, lever une ValueError avec un message clair ;
-    - retirer les lignes où la cible est manquante.
-
-    Pistes : pd.read_csv, df.columns, df.dropna(subset=[...]).
+    - Lit config.DATA_PATH ou le chemin path s'il est fourni.
+    - Vérifie que la colonne cible existe.
+    - Supprime les lignes où la cible est manquante.
     """
-    df = pd.read_csv(path if path is not None else config.DATA_PATH)
-    if config.TARGET not in df.columns:
+    if path is None:
+        path = config_REG.DATA_PATH
+
+    df = pd.read_csv(path)
+
+    if config_REG.TARGET not in df.columns:
         raise ValueError(
-            f"Colonne cible '{config.TARGET}' introuvable. "
-            f"Colonnes disponibles : {list(df.columns)}"
+            f"La colonne cible '{config_REG.TARGET}' "
+            "n'existe pas dans le fichier CSV."
         )
-    return df.dropna(subset=[config.TARGET])
+
+    df = df.dropna(subset=[config_REG.TARGET]).reset_index(drop=True)
+
+    if df.empty:
+        raise ValueError(
+            "Aucune donnée disponible après suppression "
+            "des lignes dont la cible est manquante."
+        )
+
+    return df
 
 
 def feature_columns(df: pd.DataFrame) -> list:
-    """Les colonnes d'entrée : celles de config.FEATURES, ou toutes sauf la cible et la date. (Fournie.)"""
-    if config.FEATURES is not None:
-        return list(config.FEATURES)
-    excluded = {config.TARGET, config.TIME_COLUMN}
+    """Retourne les colonnes d'entrée du modèle.
+
+    Utilise config.FEATURES si elle est définie.
+    Sinon, exclut la cible et la colonne de date.
+    """
+    if config_REG.FEATURES is not None:
+        missing = [c for c in config_REG.FEATURES if c not in df.columns]
+
+        if missing:
+            raise ValueError(
+                f"Les colonnes suivantes sont absentes : {missing}"
+            )
+
+        return list(config_REG.FEATURES)
+
+    excluded = {config_REG.TARGET, config_REG.TIME_COLUMN}
+
     return [c for c in df.columns if c not in excluded]
 
 
 def split(df: pd.DataFrame):
     """Renvoie X_train, X_test, y_train, y_test.
 
-    Attendu :
-    - X = les colonnes de feature_columns(df) ; y = la colonne cible ;
-    - si config.SPLIT == "random" : un découpage aléatoire de taille config.TEST_SIZE,
-      avec la graine config.SEED, et stratifié sur y pour une classification ;
-    - si config.SPLIT == "chronologique" : trier selon config.TIME_COLUMN et garder
-      les lignes les plus récentes pour le test (le modèle apprend le passé, il est testé sur le futur).
-
-    Pistes : train_test_split(..., test_size=..., random_state=..., stratify=...) ;
-    pd.to_datetime(...).argsort() ; X.iloc[...].
+    - En mode random : découpage aléatoire.
+    - En mode chronologique : les observations les plus récentes
+      sont utilisées pour le test.
     """
-    X = df[feature_columns(df)]
-    y = df[config.TARGET]
+    if config_REG.TARGET not in df.columns:
+        raise ValueError(
+            f"La colonne cible '{config_REG.TARGET}' "
+            "n'existe pas dans le DataFrame."
+        )
 
-    if config.SPLIT == "chronologique":
-        order = pd.to_datetime(df[config.TIME_COLUMN]).argsort().to_numpy()
-        X = X.iloc[order]
-        y = y.iloc[order]
-        n_test = max(1, int(round(len(df) * config.TEST_SIZE)))
-        n_train = len(df) - n_test
-        return X.iloc[:n_train], X.iloc[n_train:], y.iloc[:n_train], y.iloc[n_train:]
+    if not 0 < config_REG.TEST_SIZE < 1:
+        raise ValueError("TEST_SIZE doit être compris entre 0 et 1.")
 
-    # Stratifier seulement si la cible ressemble à une classification
-    is_classif = (not pd.api.types.is_numeric_dtype(y)) or y.nunique() <= 20
-    return train_test_split(
-        X, y,
-        test_size=config.TEST_SIZE,
-        random_state=config.SEED,
-        stratify=y if is_classif else None,
-    )
+    features = feature_columns(df)
+
+    if not features:
+        raise ValueError(
+            "Aucune colonne disponible pour les variables d'entrée."
+        )
+
+    X = df[features]
+    y = df[config_REG.TARGET]
+
+    if len(df) < 2:
+        raise ValueError(
+            "Au moins deux lignes sont nécessaires pour le découpage."
+        )
+
+    if config_REG.SPLIT == "random":
+        stratify = None
+
+        if config_REG.TASK == "classification":
+            counts = y.value_counts()
+
+            if len(counts) > 1 and counts.min() >= 2:
+                n_test = max(1, int(len(df) * config_REG.TEST_SIZE))
+                n_train = len(df) - n_test
+
+                if n_test >= len(counts) and n_train >= len(counts):
+                    stratify = y
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=config_REG.TEST_SIZE,
+            random_state=config_REG.SEED,
+            stratify=stratify,
+        )
+
+    elif config_REG.SPLIT == "chronologique":
+        if config_REG.TIME_COLUMN is None:
+            raise ValueError(
+                "TIME_COLUMN doit être défini pour un découpage chronologique."
+            )
+
+        if config_REG.TIME_COLUMN not in df.columns:
+            raise ValueError(
+                f"La colonne temporelle '{config_REG.TIME_COLUMN}' "
+                "n'existe pas dans le DataFrame."
+            )
+
+        dates = pd.to_datetime(
+            df[config_REG.TIME_COLUMN],
+            errors="raise",
+        )
+
+        if dates.isna().any():
+            raise ValueError(
+                "La colonne temporelle contient des dates manquantes."
+            )
+
+        # Trier chronologiquement : passé pour l'entraînement,
+        # observations les plus récentes pour le test.
+        indices = dates.sort_values(kind="stable").index
+
+        n_test = max(1, int(len(df) * config_REG.TEST_SIZE))
+
+        if n_test >= len(df):
+            raise ValueError(
+                "Le jeu de données est trop petit pour effectuer le découpage."
+            )
+
+        train_indices = indices[:-n_test]
+        test_indices = indices[-n_test:]
+
+        X_train = X.loc[train_indices]
+        X_test = X.loc[test_indices]
+        y_train = y.loc[train_indices]
+        y_test = y.loc[test_indices]
+
+    else:
+        raise ValueError(
+            f"Valeur SPLIT invalide : '{config_REG.SPLIT}'. "
+            "Utilisez 'random' ou 'chronologique'."
+        )
+
+    return X_train, X_test, y_train, y_test
+
+
+if __name__ == "__main__":
+    # Vérification rapide du chargement et du découpage.
+    df = load_data()
+
+    print("Données chargées avec succès.")
+    print(f"Fichier : {config_REG.DATA_PATH}")
+    print(f"Nombre de lignes : {len(df)}")
+    print(f"Cible : {config_REG.TARGET}")
+    print(f"Variables d'entrée : {feature_columns(df)}")
+
+    X_train, X_test, y_train, y_test = split(df)
+
+    print("\nDécoupage terminé.")
+    print(f"X_train : {X_train.shape}")
+    print(f"X_test  : {X_test.shape}")
+    print(f"y_train : {y_train.shape}")
+    print(f"y_test  : {y_test.shape}")
+
+    if config_REG.SPLIT == "chronologique":
+        print(
+            "\nPériode d'entraînement :",
+            pd.to_datetime(df.loc[X_train.index, config_REG.TIME_COLUMN]).min(),
+            "→",
+            pd.to_datetime(df.loc[X_train.index, config_REG.TIME_COLUMN]).max(),
+        )
+        print(
+            "Période de test :",
+            pd.to_datetime(df.loc[X_test.index, config_REG.TIME_COLUMN]).min(),
+            "→",
+            pd.to_datetime(df.loc[X_test.index, config_REG.TIME_COLUMN]).max(),
+        )
