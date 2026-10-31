@@ -11,5 +11,5 @@ __pycache__/
 .ipynb_checkpoints/
 
 # Données et notebooks personnels à intégrer plus tard
-/data/
-/notebooks/
+projet/data/
+
