@@ -16,6 +16,8 @@ class Settings:
     data_path: Path
     models_dir: Path
     threshold: float
+    api_key: str | None = None
+    cors_origins: tuple[str, ...] = ()
 
     @property
     def model_path(self) -> Path:
@@ -36,4 +38,12 @@ def get_settings() -> Settings:
         data_path=Path(os.getenv("MAINTAI_DATA_PATH", str(ROOT / "data" / "sensors.csv"))),
         models_dir=Path(os.getenv("MAINTAI_MODELS_DIR", str(ROOT / "models"))),
         threshold=float(os.getenv("MAINTAI_THRESHOLD", "0.3")),
+        api_key=os.getenv("MAINTAI_API_KEY") or None,
+        cors_origins=tuple(
+            o.strip()
+            for o in os.getenv(
+                "MAINTAI_CORS_ORIGINS", "http://localhost:5500,http://127.0.0.1:5500"
+            ).split(",")
+            if o.strip()
+        ),
     )

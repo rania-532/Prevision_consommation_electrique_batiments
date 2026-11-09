@@ -1,139 +1,222 @@
-# Compte rendu · TP1 : une API de prédiction pour MaintAI
+# Compte rendu · TP2 : tester, sécuriser et appeler l'API MaintAI
 
-**Groupe :** 4  
-**Membres :** Farah Otarid, Rania Bikikre, Imane Nadif, Amine Erradha, Ayman Mahboub  
-**Date :** 26/10/2026
+**Groupe :** G2  **Membres :**  Imane Nadif **Date :** 02/11/2026
+
+> Remplissez chaque partie dans ce fichier, puis rendez-le avec la pull request du TP2.
+> Collez les sorties du terminal entre les lignes ``` (trois accents graves).
 
 ---
 
-## 1. Mise en place
+## 1. Activité 1 : casser son API (dans `TP/TP1`)
 
-Dernière ligne de `python -m pytest`, juste après la mise en place :
+Vos cinq requêtes, le code que vous aviez **prévu**, puis le code **obtenu** dans `/docs` :
 
-```text
-À compléter avec la sortie réelle du terminal.
+| Requête | Ce qui ne va pas | Code prévu | Code obtenu |
+|---|---|---:|---:|
+| `POST /v1/predict` sans `load_pct` | champ manquant | 422 | 422 |
+| `POST /v1/predict` avec `temperature_c: 500` | valeur hors limites | 422 | 422 |
+| `POST /v1/predict` avec `temperature_c: "chaud"` | texte au lieu d'un nombre | 422 | 422 |
+| `POST /v1/predict` avec le champ `unknown` | champ en trop | 422 | 422 |
+| `POST /v1/inconnue` | mauvaise route | 404 | 404 |
+
+Une de vos prévisions était-elle fausse ? Laquelle, et pourquoi ?
+
+Non, toutes les prévisions étaient correctes. L'API a réagi comme prévu : elle a refusé les données incorrectes avec le code 422 et a retourné 404 lorsque la route demandée n'existait pas.
+
+Dernière ligne de `python -m pytest` avec `tests/test_casser.py` (dans `TP/TP1`) :
+
+```
+2 failed, 16 passed in 13.98s
 ```
 
-Dans `tests/test_api.py`, quatre tests sur sept passent déjà alors que rien n'est écrit. Les noms exacts sont à relever dans le fichier de tests.
+À quoi sert `@pytest.mark.parametrize` ? Combien de tests pytest compte-t-il pour votre fonction, et pourquoi ?
 
-Les deux tests qui attendent un code HTTP 422 passent pour une mauvaise raison : le schéma `SensorReading` contient `extra="forbid"`, mais les quatre champs attendus ne sont pas encore déclarés. Pydantic considère donc `temperature_c`, `vibration_mm_s`, `load_pct` et `runtime_hours` comme des champs supplémentaires interdits.
+Ce décorateur permet de tester plusieurs situations avec une seule fonction. Dans notre cas, les cinq scénarios sont exécutés séparément, donc pytest les considère comme cinq tests différents.
 
-La requête est rejetée, mais pas parce que les valeurs dépassent les limites prévues. Après la déclaration des champs, ces tests doivent vérifier la véritable validation des données.
+## 2. ruff
 
-## 2. Le schéma d'entrée (`maintai/api/schemas.py`)
+Sortie de `ruff check .` dans `TP/TP1` :
 
-| Variable | Type | Minimum (`ge`) | Maximum (`le`) | Justification physique |
-|---|---|---:|---:|---|
-| `temperature_c` | `float` | -50 | 200 | Plage générale plausible pour la température d'une machine industrielle. |
-| `vibration_mm_s` | `float` | 0 | 100 | Une vibration ne peut pas être négative ; 100 mm/s constitue une limite supérieure large pour ce TP. |
-| `load_pct` | `float` | 0 | 100 | La charge est exprimée en pourcentage et ne peut pas être négative ni dépasser 100 %. |
-| `runtime_hours` | `float` | 0 | 200000 | Le nombre d'heures de fonctionnement est positif ou nul ; 200 000 heures représentent une durée de fonctionnement cumulée élevée. |
-
-Après avoir écrit `schemas.py` seul, résultat de `python -m pytest` :
-
-```text
-À compléter avec la sortie réelle du terminal.
+```
+UP017 [*] Use `datetime.UTC` alias
+--> maintai\train.py:58:36
+Found 1 error.
+[*] 1 fixable with the `--fix` option.
 ```
 
-Le nombre de tests réussis et échoués dépend du code de test fourni. Les tests de prédiction peuvent encore échouer parce que la fonction `predict()` de `main.py` n'est pas implémentée.
+Quelle différence entre `ruff check .` et `python -m pytest` ? Que vérifie chacun ?
 
-Si les tests de validation passent désormais et que les tests de prédiction échouent avec une erreur liée à `NotImplementedError`, c'est un bon signe : le schéma valide correctement les entrées, et les tests atteignent maintenant la partie de l'API qui reste à développer.
+Ruff sert à repérer les problèmes dans le code, comme les erreurs de syntaxe, les mauvaises pratiques et les problèmes de style. Pytest permet plutôt de lancer des tests pour vérifier que les fonctionnalités de l'application donnent les résultats attendus.
 
-## 3. La fonction `predict()` (`maintai/api/main.py`)
+## 3. Mise en place du TP2 (dans `TP/TP2`)
 
-Notre code :
+Dernière ligne de `python -m pytest` juste après la mise en place :
+
+```
+===================================== 2 failed, 16 passed, 1 warning in 3.82s =====================================
+```
+
+Quels sont les deux tests qui échouent, et que reçoivent-ils au lieu de 401 ?
+
+Les deux tests sont test_missing_key_is_rejected et test_wrong_key_is_rejected. Ils reçoivent 200 au lieu de 401, car l'API n'est pas encore protégée : elle accepte toutes les requêtes.
+
+## 4. La clé API (sprint 1)
+
+Votre fonction `require_api_key()` (`maintai/api/security.py`) :
 
 ```python
-@router.post("/predict", response_model=PredictionOut)
-def predict(reading: SensorReading) -> PredictionOut:
-    predictor = state.get("predictor")
+cle_attendue = get_settings().api_key
 
-    if predictor is None:
+    if cle_attendue is None:
         raise HTTPException(
-            status_code=503,
-            detail="Le modèle de prédiction n'est pas disponible.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="La clé API n'est pas configurée sur le serveur",
         )
 
-    return predictor.predict(reading.model_dump())
+    if x_api_key is None or not secrets.compare_digest(x_api_key, cle_attendue):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Clé API absente ou invalide",
+        )
 ```
 
-**Pourquoi répondre 503 et pas 500 quand le modèle manque ?**
+Votre ligne `router = ...` dans `maintai/api/main.py` :
 
-Le code HTTP 503 signifie que le service est temporairement indisponible. Ici, l'API fonctionne, mais le modèle nécessaire à la prédiction n'est pas disponible. Le code 500 correspond plutôt à une erreur interne inattendue du serveur.
-
-**Pourquoi le modèle est-il chargé une seule fois, au démarrage, et pas à chaque requête ?**
-
-Le modèle est chargé dans la fonction `lifespan`, au démarrage de l'application. Il reste ensuite disponible dans `state` pour toutes les requêtes. Cela évite de recharger le fichier du modèle à chaque appel, réduit le temps de réponse et limite les opérations inutiles.
-
-## 4. Les tests
-
-Dernière ligne de `python -m pytest` à la fin du TP :
-
-```text
-À compléter après l'implémentation de schemas.py et main.py.
+```python
+router = APIRouter(prefix="/v1", dependencies=[Depends(require_api_key)])
 ```
 
-Commande utilisée :
+Après avoir écrit `security.py` seul (sans toucher au router), combien de tests échouent ? Pourquoi ?
 
-```bash
-python -m pytest
+2 tests échouent encore. La fonction require_api_key() existe, mais aucune route ne l'appelle : il faut l'ajouter au router avec dependencies=[Depends(require_api_key)].
+
+Dernière ligne de `python -m pytest` à la fin du sprint 1 :
+
+```
+========================================== 18 passed, 1 warning in 3.59s ==========================================
 ```
 
-## 5. L'API en marche
+Lancez `uvicorn maintai.api.main:app --reload --env-file .env`, puis envoyez ces requêtes (avec `/docs` ou `curl.exe`) :
 
-Après l'exécution des commandes :
-
-```bash
-python -m maintai.dataset
-python -m maintai.train
-uvicorn maintai.api.main:app --reload
-```
-
-Résultats à compléter après les requêtes :
-
-| Requête | Code obtenu | Réponse (corps JSON) |
+| Requête | Code obtenu | Réponse (le corps JSON) |
 |---|---|---|
-| `GET /health` | À vérifier | `{"status":"ok","model_loaded":true}` si le modèle a été chargé correctement. |
-| `POST /v1/predict` avec `{"temperature_c":72.5,"vibration_mm_s":6.1,"load_pct":85,"runtime_hours":15000}` | À vérifier | À copier depuis la réponse réelle de l'API. |
-| `POST /v1/predict` avec une température de 500 | 422 attendu | Réponse d'erreur de validation Pydantic indiquant que la température dépasse la limite autorisée. |
-| `POST /v1/predicte` | 404 attendu | Réponse indiquant que la ressource demandée n'existe pas. |
+| `GET /health`, sans clé |200 | {"status":"ok","model_loaded":true}|
+| `POST /v1/predict`, relevé normal, sans clé |401 | {"detail":"Clé API absente ou invalide"}|
+| `POST /v1/predict`, relevé normal, fausse clé |401 | {"detail":"Clé API absente ou invalide"}|
+| `POST /v1/predict`, relevé normal, bonne clé |200 |{"failure_probability":0.9553,"alert":true,"threshold":0.3,"model_version":"2026-11-02T17:33:13Z"}|
+| `POST /v1/predict`, 500 °C, sans clé |401 |{"detail":"Clé API absente ou invalide"} |
+| `POST /v1/predict`, 500 °C, bonne clé |422 | {"detail":[{"type":"less_than_equal","loc":["body","temperature_c"],"msg":"Input should be less than or equal to 150","input":500,"ctx":{"le":150}}]}|
 
-**Dans `/docs`, où voit-on les bornes choisies ?**
+500 °C sans clé et 500 °C avec la clé ne donnent pas le même code. Pourquoi ?
 
-Dans la documentation interactive Swagger, accessible à l'adresse `http://localhost:8000/docs`, on ouvre le schéma de la requête `POST /v1/predict`. Les bornes apparaissent dans les paramètres du modèle `SensorReading`, notamment dans les champs `minimum` et `maximum`, ainsi que dans les détails du schéma.
+-Sans clé : 401. L’API vérifie d’abord qui tu es (authentification) et refuse, sans même regarder le corps.
+-Avec la bonne clé : 422. Tu es authentifié, donc l’API examine le corps, et la valeur 500 dépasse la limite autorisée (150 °C) : la requête est refusée parce que les données sont invalides.
 
-## 6. Questions de compréhension
+Relancez uvicorn **sans** `--env-file .env` et envoyez un relevé avec votre clé. Quel code obtenez-vous, et pourquoi ce n'est pas 401 ?
 
-**1. REST et FastAPI : quelle est la différence ?**
+Code 500 (erreur serveur).
+Sans .env, MAINTAI_API_KEY n’est pas chargée, donc get_settings().api_key vaut None. Ton code teste ce cas en premier et lève un 500 : le problème vient du serveur mal configuré, pas de la requête du client.
+Un 401 voudrait dire « ta clé est fausse ». Ici, ta clé n’est même pas comparée, car le serveur n’a rien à comparer avec.
 
-REST est un style architectural utilisé pour concevoir des API web. FastAPI est un framework Python qui permet de développer des API, notamment en respectant les principes REST.
+## 5. La page web (sprint 2)
 
-**2. Le schéma Pydantic sert à trois choses. Lesquelles ?**
+Votre code `fetch` (le contenu du `addEventListener` dans `web/index.html`) :
 
-- Valider les données reçues et vérifier leurs types et leurs limites.
-- Refuser les champs inconnus lorsque `extra="forbid"` est activé.
-- Décrire la structure des données et contribuer à la génération automatique de la documentation OpenAPI/Swagger.
+```javascript
+const reading = Object.fromEntries(FEATURES.map(f => [f, Number(document.getElementById(f).value)]));
+  const url = document.getElementById("url").value;
+  const key = document.getElementById("key").value;
+  try {
+    const res = await fetch(`${url}/v1/predict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": key },
+      body: JSON.stringify(reading),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      show("err", `Erreur ${res.status} : ${JSON.stringify(data.detail)}`);
+      return;
+    }
+    const pct = (data.failure_probability * 100).toFixed(1);
+    show(data.alert ? "alert" : "ok", `Probabilité de panne : ${pct} % (${data.alert ? "ALERTE" : "OK"})`);
+  } catch (e) {
+    show("err", `Impossible de joindre l'API : ${e.message}`);
+  }
+```
 
-**3. Dans `http://localhost:8000/v1/predict`, que désignent `localhost`, `8000` et `/v1/predict` ?**
+Ce qu'affiche la page (servie sur le port 5500) :
 
-- `localhost` : la machine locale sur laquelle le serveur fonctionne.
-- `8000` : le port sur lequel le serveur écoute par défaut avec Uvicorn.
-- `/v1/predict` : le chemin de l'endpoint de prédiction, où `v1` désigne la version 1 de l'API.
+| Essai | Ce qu'affiche la page |
+|---|---|
+| relevé normal, bonne clé |Probabilité de panne : 94.8 % (ALERTE) |
+| 500 °C, bonne clé |Erreur 422 : [{“type”:”less_than_equal”,”loc”:[“body”,”temperature_c”],”msg”:”Input should be less than or equal to 150",”input”:500,”ctx”:{“le”:150}}] |
+| relevé normal, fausse clé |Erreur 401 : "Clé API absente ou invalide" |
 
-**4. Pourquoi `/v1` dans l'adresse ?**
+**Expérience CORS.** Servez la page sur le port 5501. Que dit la page, et que dit la console (F12) ?
 
-Le préfixe `/v1` permet de versionner l'API. Si une nouvelle version incompatible est développée, elle pourra être exposée sous `/v2` sans nécessairement casser les clients utilisant `/v1`.
+La page affiche : « Impossible de joindre l'API : Failed to fetch ».
+La console affiche : « Access to fetch at 'http://localhost:8000/v1/predict' from origin 'http://localhost:5501' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource. »
+Le port 5501 n'est pas dans MAINTAI_CORS_ORIGINS (seul 5500 est autorisé), donc l'API ne renvoie pas l'en-tête d'autorisation et le navigateur bloque la réponse.
 
-**5. Dans la commande `uvicorn maintai.api.main:app`, que désignent `maintai.api.main` et `app` ?**
 
-`maintai.api.main` désigne le module Python contenant le code de l'API. `app` est la variable de ce module qui contient l'instance de l'application FastAPI à lancer.
+Pourquoi `curl.exe` obtient-il une réponse alors que la page du port 5501 est bloquée ?
 
-## 7. Le rendu Git
+CORS est une protection appliquée par le navigateur, pas par le serveur. Le serveur répond à toutes les requêtes ; c'est le navigateur qui refuse de donner la réponse à une page venant d'une origine non autorisée. curl.exe n'est pas un navigateur : il n'a pas de notion d'origine et ne vérifie pas l'en-tête Access-Control-Allow-Origin.
 
-- **Lien de la pull request :** à compléter avec le lien GitHub réel.
-- **Le tag `tp1` existe sur GitHub :** oui / non, à vérifier.
-- **Qui a relu la pull request, et quel commentaire a-t-il laissé ?** à compléter après la revue par un membre du groupe.
+## 6. Les tests de l'activité 1 dans le TP2
 
-## 8. Ce qui reste flou
+Copiez `test_casser.py` dans `TP/TP2/tests`. Sans `headers=HEADERS`, combien de tests échouent, et avec quel code ? Lequel des cinq cas passe quand même, et pourquoi ?
 
-À compléter par les membres du groupe après le TP, en indiquant les notions qui restent à clarifier : validation Pydantic, codes HTTP, fonctionnement de FastAPI, chargement du modèle ou workflow Git avec les pull requests.
+Sans `headers=HEADERS`, les quatre cas envoyés à `/v1/predict` échouent avec 401, car la clé est
+vérifiée avant les données. Le cas de mauvaise route passe quand même avec 404 : aucune route
+correspondante n'existe pour exécuter la dépendance d'authentification.
+
+Dernière ligne de `python -m pytest` avec `headers=HEADERS` :
+
+```
+============================= 23 passed in 4.36s ==============================
+```
+
+## 7. Questions de compréhension
+
+1. Quelle différence entre 401 et 422 ? Et entre 401 et 403 ?
+
+401 Unauthorized : la clé API est absente ou invalide. Le client n'est pas authentifié.
+
+422 Unprocessable Entity : la requête est bien reçue, mais les données envoyées ne respectent pas les règles de validation.
+
+403 Forbidden : le client est authentifié, mais il n'a pas l'autorisation d'accéder à la ressource demandée.
+
+2. Pourquoi la clé n'est-elle ni dans le code ni dans Git ? Que contiennent `.env` et `.env.example`, et lequel est commité ?
+   La clé API est une information confidentielle. Si elle est écrite directement dans le code ou publiée sur GitHub, d'autres personnes pourraient l'utiliser.
+
+.env contient les vraies variables d'environnement, notamment la clé API. Il ne doit pas être envoyé sur Git.
+
+.env.example contient un modèle des variables nécessaires, avec des valeurs fictives ou des exemples. Il peut être partagé sur GitHub.
+
+C'est donc .env.example qui est commité, tandis que .env doit être ignoré par Git.
+
+3. Pourquoi la clé voyage-t-elle dans un en-tête et pas dans l'URL ?
+   La clé API est envoyée dans l'en-tête HTTP X-API-Key. Cela évite de l'exposer dans l'URL, qui peut être enregistrée dans l'historique du navigateur, les journaux du serveur ou les outils de suivi. Il faut également utiliser HTTPS pour protéger la clé pendant son transport.
+
+4. Que fait `secrets.compare_digest` de plus qu'un simple `==` ?
+   secrets.compare_digest compare deux chaînes de manière conçue pour limiter les attaques par analyse du temps d'exécution (timing attacks). Contrairement à une comparaison classique avec ==, il réduit les informations qu'un attaquant pourrait déduire de la durée de comparaison.
+
+5. Qu'est-ce qu'une « origine » ? `http://localhost:5500` et `http://localhost:8000` sont-elles la même origine ?
+   Une origine est définie par trois éléments : le protocole, le nom de domaine ou l'hôte et le port.
+
+http://localhost:5500 et http://localhost:8000 ne sont pas de la même origine, car leurs ports sont différents.
+
+C'est pour cette raison que le navigateur applique la politique CORS et vérifie si l'origine est autorisée par l'API.
+
+## 8. Le rendu Git
+
+- Lien de la pull request : …
+- Le tag `tp2` existe sur GitHub : oui 
+- `git status` avant le commit : le fichier `.env` apparaissait-il ? non
+- Qui a relu la pull request, et quel commentaire a-t-il laissé ? Rania Bikikre
+  …
+
+## 9. Ce qui reste flou
+
+Les notions principales du TP sont comprises, notamment la validation des données avec Pydantic, la sécurisation de l'API avec une clé API, les codes HTTP et le fonctionnement de CORS.

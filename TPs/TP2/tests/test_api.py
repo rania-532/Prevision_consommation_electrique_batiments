@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from maintai.api.main import app
 
-HEADERS = {}
+HEADERS = {"X-API-Key": "test-key"}
 VALID = {"temperature_c": 60.0, "vibration_mm_s": 2.0, "load_pct": 50.0, "runtime_hours": 5000}
 HIGH_RISK = {"temperature_c": 85.0, "vibration_mm_s": 9.0, "load_pct": 95.0, "runtime_hours": 19000}
 

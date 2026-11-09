@@ -32,6 +32,16 @@ uvicorn maintai.api.main:app --reload
 
 Documentation interactive : http://localhost:8000/docs
 
+## Clé API et client web
+
+```bash
+cp .env.example .env            # puis changez MAINTAI_API_KEY
+uvicorn maintai.api.main:app --reload --env-file .env
+python -m http.server 5500 -d web   # dans un second terminal
+```
+
+Ouvrez http://localhost:5500 et saisissez la clé définie dans `.env`.
+
 ## Structure
 
 ```

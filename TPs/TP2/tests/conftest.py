@@ -16,6 +16,7 @@ def settings_env(work_dir, monkeypatch):
     """Redirige les chemins du projet vers le dossier temporaire."""
     monkeypatch.setenv("MAINTAI_DATA_PATH", str(work_dir / "sensors.csv"))
     monkeypatch.setenv("MAINTAI_MODELS_DIR", str(work_dir / "models"))
+    monkeypatch.setenv("MAINTAI_API_KEY", "test-key")
     return work_dir
 
 
