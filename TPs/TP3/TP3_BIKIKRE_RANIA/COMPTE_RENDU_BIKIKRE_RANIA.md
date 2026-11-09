@@ -152,7 +152,7 @@ Pour une démonstration à un client, je choisirais Streamlit pour sa simplicit�
 
 ## 6. Le rendu Git
 
-- Lien de la pull request : **À compléter**
+- Lien de la pull request : [**(https://github.com/rania-532/Prevision_consommation_electrique_batiments/pull/19)**]
 - Le tag `tp3` existe sur GitHub : **À compléter**
 - `git status` avant le commit : `.env`, `data/` ou `models/` apparaissaient-ils ? **À vérifier**
 
