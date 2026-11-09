@@ -126,8 +126,8 @@ pip install -e . installe le package en mode éditable : il utilise directement 
 
 ## 5. Le rendu Git
 
-- Lien de la pull request : …
-- Le tag `tp4` existe sur GitHub : oui / non
+- Lien de la pull request :(https://github.com/rania-532/Prevision_consommation_electrique_batiments/pull/29)
+- Le tag `tp4` existe sur GitHub : oui 
 - `git status` avant le commit : `dist/`, `build/` ou `maintai.egg-info/` apparaissaient-ils ?  non
 
 ## 6. Ce qui reste flou
