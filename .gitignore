@@ -1,15 +1,17 @@
-# Environnements virtuels Python
+# Environnements virtuels
 .venv/
 **/.venv/
 
-# Cache Python et tests
+# Fichiers de configuration sensibles
+.env
+**/.env
+
+# Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
+
+# Tests et notebooks
 .pytest_cache/
-
-# Jupyter
+**/.pytest_cache/
 .ipynb_checkpoints/
-
-# Données et notebooks personnels à intégrer plus tard
-/data/
-/notebooks/
