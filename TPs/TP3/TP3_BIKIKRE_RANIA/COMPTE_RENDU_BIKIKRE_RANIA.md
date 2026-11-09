@@ -152,9 +152,17 @@ Pour une démonstration à un client, je choisirais Streamlit pour sa simplicit�
 
 ## 6. Le rendu Git
 
-- Lien de la pull request : **À compléter**
-- Le tag `tp3` existe sur GitHub : **À compléter**
-- `git status` avant le commit : `.env`, `data/` ou `models/` apparaissaient-ils ? **À vérifier**
+- Lien de la pull request : **(https://github.com/rania-532/Prevision_consommation_electrique_batiments/pull/19)**
+- Le tag `tp3` existe sur GitHub : oui
+- `git status` avant le commit : `.env`, `data/` ou `models/` apparaissaient-ils ? **.env : non, fichier ignoré par Git.
+
+
+
+data/ : oui, uniquement data/.gitkeep ; aucun fichier CSV.
+
+
+
+models/ : non, dossier ignoré par Git.**
 
 ## 7. Ce qui reste flou
 
