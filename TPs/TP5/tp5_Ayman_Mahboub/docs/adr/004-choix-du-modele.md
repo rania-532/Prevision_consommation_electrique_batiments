@@ -58,6 +58,15 @@ recall (0.691) : elle est écartée.
 En échange, le recall passe de 0.750 à 0.838 : environ 8 pannes sur 100 en
 plus sont détectées.
 
+### Confirmation par grid search (25 cas)
+
+Une recherche sur grille (C ∈ {0.01, 0.1, 1, 10, 100} × seuil ∈ {0.1, 0.2,
+0.3, 0.4, 0.5}, données v2 `93fdeef2…`, voir `COMPTE_RENDU.md` §5 bis)
+confirme ce choix : le seuil influence beaucoup plus le recall que C. Le seuil
+0.1 atteint un recall de 0.966 mais une précision de 0.384, ce qui fait trop de
+fausses alertes. Le seuil 0.2 donne recall ≈ 0.82–0.83 et précision ≈
+0.55–0.57 pour toutes les valeurs de C (run C = 1 : `0c5a8fd7ae0545f7843649668bc14124`).
+
 ## 5. Conséquences
 
 - En production, `MAINTAI_THRESHOLD` doit valoir `0.2`.
