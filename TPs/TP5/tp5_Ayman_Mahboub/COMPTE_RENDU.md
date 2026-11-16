@@ -1,4 +1,4 @@
-# Compte rendu TP5 — MLflow et DVC
+# Compte rendu TP5 — Suivre les entraînements et versionner les données
 
 | Élément | Valeur |
 |---|---|
@@ -9,55 +9,47 @@
 | Branche | `feature/tp5-ayman-mahboub` |
 | Dossier | `TPs/TP5/tp5_Ayman_Mahboub/` |
 | Date | 16/11/2026 |
-| Projet | MaintAI |
+| Projet | MaintAI 0.3.0 |
+| Outils | MLflow 3.18.0, DVC 3.67.1, scikit-learn 1.8.0 |
 
 ## 1. Mise en place
 
-Les dépendances ont été installées avec :
-
 ```powershell
-python -m pip install -r requirements.txt
-python -m pip install -e .
+pip install -r requirements.txt
+pip install -e .
+python -m maintai.dataset      # 5000 relevés, taux de panne 13.6 %
+python -m pytest
 ```
 
-L'installation éditable a créé le package `maintai==0.3.0` et la commande
-`maintai-predict`.
+Le test `tests/test_cli.py` importait `TP5.models.cli`, un module qui
+n'existe pas. L'import a été corrigé en `from maintai.cli import main`.
 
-### Tests
-
-Les tests ciblés liés au TP5 passent :
+Résultat final :
 
 ```text
-tests/test_tracking.py tests/test_client.py
-8 passed
+32 passed, 3 warnings in 39.26s
 ```
 
-Les tests du package passent également :
+## 2. MLOps : pourquoi suivre le code, les données et le modèle
 
-```text
-tests/test_package.py
-2 passed
-```
+Le DevOps ne suit qu'une chose qui change : le code. Le MLOps en suit trois :
+le code, les données et le modèle.
 
-La suite complète est actuellement bloquée pendant la collecte par une
-incohérence préexistante dans `tests/test_cli.py` :
+**Une raison pour laquelle MaintAI peut devenir moins bon sans modifier son
+code :** la dérive des données. Par exemple, si les machines sont remplacées
+ou si les capteurs sont recalibrés, les températures et vibrations « normales »
+changent. Le modèle, appris sur les anciennes mesures, déclenche alors trop ou
+pas assez d'alertes, alors que le code n'a pas changé.
 
-```text
-ModuleNotFoundError: No module named 'TP5'
-```
+| Outil | Ce qu'il garde |
+|---|---|
+| Git | le code et le reçu `data/sensors.csv.dvc` (md5 + taille) |
+| DVC | le fichier `data/sensors.csv` lui-même, dans le cache et le stockage |
+| MLflow | chaque entraînement : paramètres, `data_md5`, métriques, modèle et `requirements.txt` |
 
-Le test importe `TP5.models.cli`, alors que le projet contient le package
-`maintai` et aucun package `TP5.models`.
+## 3. Sprint 1 — Enregistrer chaque entraînement (MLflow)
 
-Avant `pip install -e .`, les imports locaux fonctionnaient depuis le dossier
-du projet, mais aucune métadonnée de distribution `maintai` n'était installée.
-Après l'installation éditable, la distribution `maintai==0.3.0` et son script
-`maintai-predict` sont disponibles dans l'environnement Python.
-
-## 2. Sprint 1 — Suivi des entraînements avec MLflow
-
-La fonction `log_run` de `maintai/tracking.py` réalise les opérations
-suivantes :
+`log_run` dans `maintai/tracking.py` :
 
 ```python
 mlflow.set_experiment(EXPERIMENT)
@@ -65,184 +57,163 @@ with mlflow.start_run() as run:
     mlflow.log_params(params)
     mlflow.log_param("data_md5", file_md5(data_path))
     mlflow.log_metrics(metrics)
-    mlflow.sklearn.log_model(
-        model,
-        name="model",
-        input_example=X_example,
-        skops_trusted_types=TRUSTED_TYPES,
-    )
-    return run.info.run_id
+    mlflow.sklearn.log_model(model, name="model", input_example=X_example,
+                             skops_trusted_types=TRUSTED_TYPES)
+return run.info.run_id
 ```
 
-### Résultats obtenus
+### Les quatre entraînements (données v1 : 5000 relevés, 4000 train / 1000 test)
 
-Les quatre entraînements ont été réalisés sur 8 000 relevés, avec 6 400
-relevés d'entraînement et 1 600 relevés de test.
-
-| Commande | Run ID | Recall | Precision | Accuracy |
+| Entraînement | Run MLflow | recall | precision | accuracy |
 |---|---|---:|---:|---:|
-| `python -m maintai.train` | `25db2f38a79e4d68bdc677105f84309b` | 0.741 | 0.650 | 0.916 |
-| `python -m maintai.train --C 0.01` | `a31aa4313a71491da6088bb4a44c2467` | 0.698 | 0.688 | 0.921 |
-| `python -m maintai.train --threshold 0.2` | `be4a72e53fa74a57aad9a07eec856bf9` | **0.824** | 0.567 | 0.897 |
-| `python -m maintai.train --model forest` | `e076afe85a1b49488db7ef8472a4fbab` | 0.722 | 0.609 | 0.905 |
+| `python -m maintai.train` | `f7b612783c6e4075970cc6724380ebf3` | 0.750 | 0.622 | 0.904 |
+| `--C 0.01` | `df99319979b74e618e50f4645688bc35` | 0.691 | 0.653 | 0.908 |
+| `--threshold 0.2` | `38f29769b559474db7e05d5d5ce6ebca` | **0.838** | 0.543 | 0.882 |
+| `--model forest` | `589f44a69d6d4f559989036935cdae22` | 0.728 | 0.562 | 0.886 |
 
-### Choix recommandé
+Les quatre runs ont le même `data_md5 = 73e0b7cb3c6f795c70c3ddf970b99c15`.
+La baseline (toujours « pas de panne ») a un recall de 0.
 
-Pour MaintAI, le run recommandé est :
+**Quel run choisir pour MaintAI ? La forêt aléatoire est-elle meilleure ?**
+Le run `--threshold 0.2`. Une panne manquée coûte plus cher qu'une fausse
+alerte : on privilégie le recall, qui est le plus élevé (0.838). On accepte en
+échange une précision plus faible (0.543), donc plus de fausses alertes.
+La forêt aléatoire n'est pas meilleure : au même seuil 0.3, elle fait moins
+bien que la régression logistique en recall (0.728 contre 0.750) et en
+précision (0.562 contre 0.622), et elle est plus lourde et moins explicable.
 
-```text
-Run : be4a72e53fa74a57aad9a07eec856bf9
-Modèle : régression logistique, C=1.0
-Seuil : 0.2
-Recall : 0.824
-Precision : 0.567
-Accuracy : 0.897
-```
+**Version de scikit-learn dans le `requirements.txt` du modèle :**
+`scikit-learn==1.8.0`. Cela règle le problème du TP4 : le fichier
+`model.joblib` ne disait pas avec quelle version il avait été entraîné, et un
+chargement avec une autre version de scikit-learn pouvait échouer ou donner
+d'autres résultats. MLflow garde maintenant les versions exactes avec le
+modèle.
 
-Ce run est retenu car le rappel est le plus élevé. Dans ce projet, une panne
-manquée coûte davantage qu'une fausse alerte ; le seuil de 0.2 est donc
-préférable malgré une précision plus faible.
-
-### Versionnement du modèle
-
-Le modèle enregistré par MLflow indique `scikit-learn==1.8.0` dans ses
-dépendances. Cela règle le problème du TP4 où le modèle pouvait être chargé
-avec une version différente de scikit-learn et produire des incompatibilités.
-
-Les runs sont enregistrés localement dans :
-
-```text
-mlflow.db
-mlruns/
-```
-
-Ces fichiers ne doivent pas être versionnés dans Git : ils sont générés
-localement, peuvent être volumineux et contiennent les artefacts et
-l'historique d'expérimentation. Ils sont exclus par `.gitignore`.
-
-## 3. Sprint 2 — Versionnement des données avec DVC
-
-Dans l'environnement actuel, le projet n'est pas dans un dépôt Git et aucun
-dépôt DVC n'a donc été initialisé :
-
-```text
-ERROR: you are not inside of a DVC repository
-```
-
-Le fichier `data/sensors.csv.dvc` n'est pas présent. Les étapes suivantes ne
-peuvent donc pas être produites honnêtement dans cet environnement :
-
-- `dvc add data/sensors.csv` ;
-- `dvc status` après modification ;
-- comparaison de deux commits Git ;
-- `dvc checkout` et `dvc pull`.
-
-La procédure attendue dans un dépôt Git est :
+## 4. Sprint 2 — Versionner les données (DVC)
 
 ```powershell
-git init
-dvc init --subdir
+dvc init --subdir                     # dans TPs/TP5/tp5_Ayman_Mahboub
+git commit -m "DVC : init"
 dvc add data/sensors.csv
-dvc status
+git add data/sensors.csv.dvc & git commit -m "Données v1"
+mkdir %USERPROFILE%\dvc-stockage
+dvc remote add --local -d stockage %USERPROFILE%\dvc-stockage
+dvc push                              # 1 file pushed
 ```
 
-Le fichier `data/sensors.csv` contient actuellement 8 000 relevés, plus la
-ligne d'en-tête. Son empreinte MD5 est :
+Contenu de `data/sensors.csv.dvc` (v1) :
 
-```text
-93fdeef2cac1893c4f720c16457eea75
+```yaml
+outs:
+- md5: 73e0b7cb3c6f795c70c3ddf970b99c15
+  size: 126815
+  hash: md5
+  path: sensors.csv
 ```
 
-Cette même empreinte est enregistrée dans le dernier run MLflow sous le
-paramètre `data_md5`.
+**md5 du reçu comparé au `data_md5` des runs :** les deux valeurs sont
+identiques (`73e0b7cb…`). `file_md5()` calcule la même empreinte que DVC : un
+run MLflow est donc relié à une version précise des données.
 
-DVC versionne le contenu lourd des données dans son cache ou son stockage
-distant, tandis que Git versionne le petit fichier `.dvc` contenant la
-référence et l'empreinte. Cela évite de placer directement les fichiers de
-données volumineux dans Git.
+**Pourquoi `data/sensors.csv` ne va pas dans Git, mais `data/sensors.csv.dvc`
+oui ?** Un fichier de données peut peser des centaines de Mo et Git garde
+chaque version pour toujours, ce qui alourdit le dépôt. DVC stocke le fichier
+dans son cache et dans le stockage partagé, et Git ne garde que le reçu de
+quelques lignes (md5 et taille) qui suffit à retrouver le bon fichier.
 
-## 4. Relation entre modèle et données
+### Une deuxième version, et retour
 
-Le run retenu est lié aux données par :
+```powershell
+python -m maintai.dataset --n 8000 --seed 7
+dvc status            # changed outs: modified: data\sensors.csv
+dvc add data/sensors.csv
+git add data/sensors.csv.dvc & git commit -m "Données v2"
+dvc push              # 1 file pushed
+python -m maintai.train   # Run MLflow : 3d96fcda9a2a4bf78f9ea848a28e969c
+```
 
-| Run | `data_md5` | `n_train` | Recall | Precision |
-|---|---|---:|---:|---:|
-| `be4a72e53fa74a57aad9a07eec856bf9` | `93fdeef2` | 6400 | 0.824 | 0.567 |
+| Version | Commit (git log) | md5 (8 caractères) | Lignes |
+|---|---|---|---:|
+| v1 | `0d423bf` | `73e0b7cb` | 5000 |
+| v2 | `bb2e776` | `93fdeef2` | 8000 |
 
-On ne peut pas déclarer qu'un modèle est meilleur uniquement en comparant
-deux métriques provenant de versions différentes des données. Il faut
-comparer les modèles sur le même jeu de test, avec les mêmes métriques, le
-même seuil et un protocole identique.
+- Retour à la v1 : `git checkout 0d423bf -- data/sensors.csv.dvc` puis
+  `dvc checkout` → **5000 lignes**. `git status` montre le `.dvc` modifié
+  (l'ancien reçu) : il n'a pas été commité.
+- Retour à la v2 : `git checkout HEAD -- data/sensors.csv.dvc` puis
+  `dvc checkout` → **8000 lignes**.
+- Coéquipier sans les données : suppression de `data/sensors.csv` et de
+  `.dvc/cache`, puis `dvc pull` → `1 file fetched and 1 file added`. Le fichier
+  est récupéré depuis le stockage et on retrouve les 8000 lignes de la v2.
 
-## 5. Décision d'architecture
+## 5. D'un modèle à ses données
 
-La décision actuelle est documentée dans
-[`docs/adr/000-modele.md`](docs/adr/000-modele.md) :
+| Run | Données | n_train | recall | precision | accuracy |
+|---|---|---:|---:|---:|---:|
+| `f7b612783c6e4075970cc6724380ebf3` | v1 `73e0b7cb` | 4000 | 0.750 | 0.622 | 0.904 |
+| `3d96fcda9a2a4bf78f9ea848a28e969c` | v2 `93fdeef2` | 6400 | 0.741 | 0.650 | 0.916 |
 
-- modèle : régression logistique avec `StandardScaler` ;
-- seuil retenu pour l'essai : `0.2` ;
-- justification : maximiser le rappel lorsque les pannes manquées sont
-  coûteuses.
+**Le run sur la v2 a-t-il un meilleur recall que le run sur la v1, avec les
+mêmes réglages ? Peut-on conclure que le modèle v2 est meilleur ?**
+Non : le recall est légèrement plus bas (0.741 contre 0.750), alors que la
+précision et l'accuracy sont un peu plus hautes. Et on ne peut de toute façon
+rien conclure : les deux modèles ne sont pas évalués sur le même jeu de test
+(1000 relevés de la v1 contre 1600 de la v2, générés avec une autre graine).
+Les écarts observés peuvent venir des données de test plutôt que du modèle.
+Pour comparer, il faudrait évaluer les deux modèles sur un même jeu de test.
 
-Le fichier `docs/adr/004-choix-du-modele.md` n'existe pas encore. Le run de
-référence pour une future ADR 004 est
-`be4a72e53fa74a57aad9a07eec856bf9`, avec la donnée
-`93fdeef2cac1893c4f720c16457eea75`.
+**Retrouver les données d'un run :** lire `data_md5` dans MLflow, trouver le
+commit dont `data/sensors.csv.dvc` porte ce md5
+(`git log --oneline -- data/sensors.csv.dvc`), puis
+`git checkout <commit> -- data/sensors.csv.dvc` et `dvc checkout` (ou
+`dvc pull` sur un autre PC).
 
-## 6. Questions de compréhension
+| Livrer un modèle | Où c'est maintenant |
+|---|---|
+| le code | Git (et le wheel du TP4) |
+| les données | DVC : le reçu dans Git, le fichier dans le stockage |
+| le modèle | MLflow : un run, son identifiant |
+| les versions exactes | MLflow : le `requirements.txt` du modèle |
 
-### 6.1 Différence entre Git, DVC et MLflow
+## 6. Décision : ADR 004
 
-- **Git** versionne le code, la configuration, la documentation et les petits
-  fichiers texte.
-- **DVC** versionne les données volumineuses et conserve leur historique via
-  des fichiers `.dvc` suivis par Git.
-- **MLflow** versionne les expériences de Machine Learning : paramètres,
-  métriques, versions de données et artefacts de modèles.
+Voir [docs/adr/004-choix-du-modele.md](docs/adr/004-choix-du-modele.md).
+Modèle retenu : régression logistique, C = 1.0, **seuil 0.2**, run
+`38f29769b559474db7e05d5d5ce6ebca`, `data_md5 = 73e0b7cb3c6f795c70c3ddf970b99c15`.
 
-### 6.2 Pourquoi utiliser un stockage DVC local ?
+## 7. Rendu Git
 
-L'option `--local` conserve la configuration du stockage DVC uniquement dans la
-machine courante. Elle évite de publier un chemin local propre à un poste dans
-le dépôt. Pour partager les données avec tout le groupe, il faudrait utiliser
-un stockage distant accessible à tous, par exemple un serveur S3, Azure Blob
-Storage ou un partage réseau configuré pour chaque membre.
-
-### 6.3 Les trois éléments nécessaires pour livrer un modèle
-
-Il faut livrer :
-
-1. le code de prétraitement et de prédiction ;
-2. le modèle entraîné ;
-3. les métadonnées et dépendances nécessaires pour le recharger.
-
-Dans MaintAI :
-
-- le code se trouve dans `maintai/` ;
-- le modèle se trouve dans `models/model.joblib` ;
-- les métadonnées se trouvent dans `models/model_info.json`,
-  `models/metrics.json` et dans les artefacts MLflow ;
-- les dépendances sont décrites dans `requirements.txt` et `pyproject.toml`.
-
-## 7. État du rendu Git
-
-- Dépôt GitHub : https://github.com/rania-532/Prevision_consommation_electrique_batiments
 - Branche : `feature/tp5-ayman-mahboub`
-- Dossier du rendu : `TPs/TP5/tp5_Ayman_Mahboub/`
-- Auteur des commits : Ayman Mahboub `<aymanmahboub1@gmail.com>`
-- Lien de pull request : https://github.com/rania-532/Prevision_consommation_electrique_batiments/pull/new/feature/tp5-ayman-mahboub
-- Tag `tp5` : non créé.
-- `.env` (clé API) : exclu du dépôt, seul `.env.example` est versionné.
-- `mlflow.db` et `mlruns/` : générés localement et exclus par `.gitignore`.
-- `models/` et `data/sensors.csv` : générés localement et exclus par `.gitignore`.
+- Commits : `DVC : init`, `Données v1`, `Données v2`, compte rendu et ADR 004
+- Pull request : https://github.com/rania-532/Prevision_consommation_electrique_batiments/pull/new/feature/tp5-ayman-mahboub
+- Non versionnés (exclus par `.gitignore`) : `mlflow.db`, `mlruns/`,
+  `data/sensors.csv`, `models/`, `.env`, `.dvc/cache`, `.dvc/config.local`.
 
-## 8. Points restant à faire
+Critères de réussite :
 
-Pour finaliser le rendu sur GitHub :
+| Critère | État |
+|---|---|
+| 32 tests passent | fait |
+| au moins cinq runs dans MLflow | fait (5 runs) |
+| deux versions des données sous DVC, poussées dans le stockage | fait |
+| retour à la v1 et `dvc pull` réussis | fait |
+| ADR 004 avec l'identifiant du run | fait |
+| pull request fusionnée et tag `tp5` | à faire après relecture |
 
-1. ~~placer le projet dans un dépôt Git~~ (fait, voir section 7) ;
-2. initialiser DVC et ajouter `data/sensors.csv` ;
-3. configurer un stockage DVC partagé ;
-4. créer `docs/adr/004-choix-du-modele.md` si cette ADR est demandée ;
-5. corriger l'import obsolète `TP5.models.cli` dans `tests/test_cli.py` ;
-6. exécuter à nouveau la suite complète et joindre sa sortie au rendu.
+## 8. Ticket de sortie
+
+1. **Ce que le MLOps ajoute au DevOps :** le suivi des données et du modèle,
+   en plus du code ; la vérification par des métriques comparées run par run ;
+   le ré-entraînement quand les données dérivent, même sans nouveau code.
+2. **Ce que versionnent Git, DVC et MLflow :** Git le code et les reçus `.dvc` ;
+   DVC les fichiers de données ; MLflow les entraînements (paramètres,
+   `data_md5`, métriques, modèle et dépendances).
+3. **Pourquoi `data/sensors.csv` n'est pas dans Git :** il peut être
+   volumineux et Git en garderait chaque version ; seul son reçu de quelques
+   octets y est versionné, le fichier est dans le stockage DVC.
+4. **Retrouver les données d'un run :** prendre son `data_md5`, retrouver le
+   commit du `.dvc` qui porte ce md5, `git checkout <commit> --
+   data/sensors.csv.dvc` puis `dvc checkout` / `dvc pull`.
+5. **Ce qui reste flou :** comment partager un stockage DVC réel (S3, Google
+   Drive) entre les membres du groupe, et comment comparer proprement deux
+   modèles entraînés sur des versions de données différentes.
