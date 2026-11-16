@@ -175,6 +175,62 @@ commit dont `data/sensors.csv.dvc` porte ce md5
 | le modèle | MLflow : un run, son identifiant |
 | les versions exactes | MLflow : le `requirements.txt` du modèle |
 
+## 5 bis. Grid search sur 25 cas
+
+Pour vérifier le choix du seuil et de C, une recherche sur grille a été faite
+avec `maintai/grid_search.py` (`python -m maintai.grid_search`) : régression
+logistique, 5 valeurs de C × 5 seuils = **25 runs MLflow**, tous sur les
+données v2 (`data_md5 = 93fdeef2cac1893c4f720c16457eea75`, 8000 relevés,
+6400 train / 1600 test).
+
+| C | seuil | recall | precision | accuracy | run |
+|---:|---:|---:|---:|---:|---|
+| 0.01 | 0.1 | 0.966 | 0.384 | 0.797 | `57a084710c3b4f83a61139a4bad9f54c` |
+| 0.01 | 0.2 | 0.829 | 0.547 | 0.890 | `f372c7b06634435ba82d2bc405b838db` |
+| 0.01 | 0.3 | 0.698 | 0.688 | 0.921 | `e3ab6be514474f9b9a9dd30f231f97c5` |
+| 0.01 | 0.4 | 0.571 | 0.780 | 0.924 | `9d66467da91543db854a7dd12c54bbaf` |
+| 0.01 | 0.5 | 0.463 | 0.833 | 0.919 | `372355340ee34d5cb6bfe652d9d974eb` |
+| 0.1 | 0.1 | 0.922 | 0.445 | 0.843 | `66fa8cfb03df499fb9bbf546a2ebc852` |
+| 0.1 | 0.2 | 0.829 | 0.559 | 0.894 | `cd665c5721fe481d80d82070d100628a` |
+| 0.1 | 0.3 | 0.732 | 0.652 | 0.916 | `86a0094e6ef041498a61900fc7a6bba1` |
+| 0.1 | 0.4 | 0.654 | 0.720 | 0.923 | `f2cc28b7fe6f491ea785274f31d365ef` |
+| 0.1 | 0.5 | 0.566 | 0.784 | 0.924 | `9ea1146f28604297bdc06c3fd617d9ab` |
+| 1.0 | 0.1 | 0.907 | 0.458 | 0.851 | `52f1f114091a46ca908e0e2743b8d5b6` |
+| 1.0 | 0.2 | 0.824 | 0.567 | 0.897 | `0c5a8fd7ae0545f7843649668bc14124` |
+| 1.0 | 0.3 | 0.741 | 0.650 | 0.916 | `c1d0e269d90340359671352f04a87c77` |
+| 1.0 | 0.4 | 0.663 | 0.723 | 0.924 | `585e46bd43564e8796e8ffc39595506c` |
+| 1.0 | 0.5 | 0.580 | 0.773 | 0.924 | `eccd89f3b12a4b30b31b9f1599e066d7` |
+| 10.0 | 0.1 | 0.902 | 0.457 | 0.850 | `f18b1ed96ea84693a70f6de4230a0768` |
+| 10.0 | 0.2 | 0.824 | 0.567 | 0.897 | `b43fdd1e38e342cb9b1b2023aa7f4695` |
+| 10.0 | 0.3 | 0.741 | 0.650 | 0.916 | `6f2c0d4fbadc49f8ad0a1a154d650db0` |
+| 10.0 | 0.4 | 0.668 | 0.725 | 0.925 | `4aea57bff77a46a0bc9f3547fb10dc48` |
+| 10.0 | 0.5 | 0.580 | 0.768 | 0.924 | `a7853be67a6a44e8b9d96e24042259dd` |
+| 100.0 | 0.1 | 0.902 | 0.457 | 0.850 | `2d7f94eadb3c4b89a5bc12c125f8092e` |
+| 100.0 | 0.2 | 0.824 | 0.567 | 0.897 | `cafb6640e3b84c25945bf21457ce09a1` |
+| 100.0 | 0.3 | 0.741 | 0.650 | 0.916 | `fe0ad975a6d2428086dc1e18aefa26aa` |
+| 100.0 | 0.4 | 0.668 | 0.725 | 0.925 | `e5b0687fd3a54ef1a479f8f41006a034` |
+| 100.0 | 0.5 | 0.580 | 0.768 | 0.924 | `83cecdb794764f2b96b99b7533904c6b` |
+
+**Analyse.**
+
+- **Le seuil compte beaucoup plus que C.** À C fixé, passer du seuil 0.5 au
+  seuil 0.1 fait monter le recall d'environ 0.46–0.58 à 0.90–0.97. À seuil
+  fixé, C ne fait varier le recall que de quelques points, et au-delà de
+  C = 1 les résultats sont presque identiques (la régularisation n'a plus
+  d'effet).
+- **Le seuil 0.1 maximise le recall** (0.966 avec C = 0.01), mais la précision
+  tombe à 0.384 : environ 1.6 fausse alerte pour chaque vraie panne. C'est trop
+  pour une équipe de maintenance, qui finirait par ignorer les alertes.
+- **Le seuil 0.2 reste le meilleur compromis** : recall d'environ 0.82–0.83 et
+  précision d'environ 0.55–0.57. Les cas C = 0.1 (0.829 / 0.559) et C = 1
+  (0.824 / 0.567) sont pratiquement à égalité ; l'écart est d'un ou deux
+  relevés sur le jeu de test.
+
+**Conclusion.** Le grid search confirme la décision de l'ADR 004 : une
+régression logistique avec un **seuil de 0.2**. C = 1 est conservé (valeur par
+défaut, équivalente à C = 0.1 ici). On ne descend à 0.1 que si l'équipe accepte
+beaucoup plus de fausses alertes.
+
 ## 6. Décision : ADR 004
 
 Voir [docs/adr/004-choix-du-modele.md](docs/adr/004-choix-du-modele.md).
@@ -194,7 +250,7 @@ Critères de réussite :
 | Critère | État |
 |---|---|
 | 32 tests passent | fait |
-| au moins cinq runs dans MLflow | fait (5 runs) |
+| au moins cinq runs dans MLflow | fait (30 runs : 5 du TP + 25 du grid search) |
 | deux versions des données sous DVC, poussées dans le stockage | fait |
 | retour à la v1 et `dvc pull` réussis | fait |
 | ADR 004 avec l'identifiant du run | fait |
