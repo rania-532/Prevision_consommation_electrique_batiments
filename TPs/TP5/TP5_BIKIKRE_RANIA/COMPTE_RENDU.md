@@ -198,8 +198,8 @@ Les versions exactes des dépendances : fichier requirements.txt.
 
 ## 7. Le rendu Git
 
-- Lien de la pull request : …
-- Le tag `tp5` existe sur GitHub : oui / non
+- Lien de la pull request : https://github.com/rania-532/Prevision_consommation_electrique_batiments/pull/35
+- Le tag `tp5` existe sur GitHub : non 
 - `git status` avant le commit : `mlflow.db`, `mlruns/`, `data/sensors.csv` ou `.dvc/cache` apparaissaient-ils ? non
 
 ## 8. Ce qui reste flou
