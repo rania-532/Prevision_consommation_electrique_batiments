@@ -4,7 +4,7 @@
 |---|---|
 | Groupe | G2 |
 | Membre | Mahboub Ayman |
-| GitHub | aymanmahboub1@gmail.com |
+| GitHub | mahboubayman1@gmail.com |
 | Dépôt | [rania-532/Prevision_consommation_electrique_batiments](https://github.com/rania-532/Prevision_consommation_electrique_batiments) |
 | Branche | `feature/tp5-ayman-mahboub` |
 | Dossier | `TPs/TP5/tp5_Ayman_Mahboub/` |
