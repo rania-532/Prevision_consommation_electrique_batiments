@@ -4,6 +4,10 @@
 |---|---|
 | Groupe | G2 |
 | Membre | Mahboub Ayman |
+| GitHub | aymanmahboub1@gmail.com |
+| Dépôt | [rania-532/Prevision_consommation_electrique_batiments](https://github.com/rania-532/Prevision_consommation_electrique_batiments) |
+| Branche | `feature/tp5-ayman-mahboub` |
+| Dossier | `TPs/TP5/tp5_Ayman_Mahboub/` |
 | Date | 16/11/2026 |
 | Projet | MaintAI |
 
@@ -222,17 +226,21 @@ Dans MaintAI :
 
 ## 7. État du rendu Git
 
-- Lien de pull request : non disponible, aucun dépôt Git n'est configuré.
-- Tag `tp5` : non vérifiable, aucun dépôt Git local n'est présent.
-- `git status` : impossible, le dossier n'est pas un dépôt Git.
+- Dépôt GitHub : https://github.com/rania-532/Prevision_consommation_electrique_batiments
+- Branche : `feature/tp5-ayman-mahboub`
+- Dossier du rendu : `TPs/TP5/tp5_Ayman_Mahboub/`
+- Auteur des commits : Ayman Mahboub `<aymanmahboub1@gmail.com>`
+- Lien de pull request : https://github.com/rania-532/Prevision_consommation_electrique_batiments/pull/new/feature/tp5-ayman-mahboub
+- Tag `tp5` : non créé.
+- `.env` (clé API) : exclu du dépôt, seul `.env.example` est versionné.
 - `mlflow.db` et `mlruns/` : générés localement et exclus par `.gitignore`.
-- `data/sensors.csv` : généré localement et exclu par `.gitignore`.
+- `models/` et `data/sensors.csv` : générés localement et exclus par `.gitignore`.
 
 ## 8. Points restant à faire
 
 Pour finaliser le rendu sur GitHub :
 
-1. placer le projet dans un dépôt Git ;
+1. ~~placer le projet dans un dépôt Git~~ (fait, voir section 7) ;
 2. initialiser DVC et ajouter `data/sensors.csv` ;
 3. configurer un stockage DVC partagé ;
 4. créer `docs/adr/004-choix-du-modele.md` si cette ADR est demandée ;
