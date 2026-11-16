@@ -1,4 +1,4 @@
-from TP5.models.cli import main
+from maintai.cli import main
 
 
 def test_cli_prints_the_prediction(trained_model, capsys):
