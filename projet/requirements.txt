@@ -1,0 +1,47 @@
+
+# Data manipulation and analysis
+pandas
+numpy
+scipy
+
+# Data visualization
+matplotlib
+seaborn
+plotly
+
+# Machine Learning
+scikit-learn
+xgboost
+lightgbm
+joblib
+
+# Jupyter notebooks
+jupyter
+ipykernel
+
+# Streamlit interface
+streamlit
+streamlit-option-menu
+
+# Data validation
+pandera
+
+# Testing and code quality
+pytest
+pytest-cov
+flake8
+black
+
+# Configuration and environment variables
+python-dotenv
+PyYAML
+
+# API (optional, for future integration)
+fastapi
+uvicorn
+
+# Date and time handling
+python-dateutil
+
+# Model experiment tracking
+mlflow
