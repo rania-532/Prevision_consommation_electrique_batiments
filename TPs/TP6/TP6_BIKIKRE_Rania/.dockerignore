@@ -1,0 +1,24 @@
+# Ce qui n'entre jamais dans l'image : lourd, local ou secret
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.git/
+dist/
+build/
+*.egg-info/
+tests/
+
+# Données et modèles
+data/
+models/
+
+# Secrets
+.env
+
+# MLflow
+mlflow.db
+mlruns/
+
+# Cache DVC
+.dvc/
