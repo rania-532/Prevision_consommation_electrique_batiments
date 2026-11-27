@@ -233,7 +233,7 @@ Docker permet de livrer l'application dans un environnement reproductible conten
 
 ## 8. Le rendu Git
 
-- Lien de la pull request : …
+- Lien de la pull request : (https://github.com/rania-532/Prevision_consommation_electrique_batiments/pull/38)
 - Le tag `tp6` existe sur GitHub : oui / non
 - `git status` avant le commit : `.env`, `models/` ou `data/*.csv` apparaissaient-ils ?  non
 
